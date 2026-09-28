@@ -1,0 +1,26 @@
+# Render Blueprint: deploy the API and UI from one GitHub repository.
+# The hosted demo intentionally runs without OPENAI_API_KEY; it still shows
+# LangChain retrieval, governed SQL, citations, and evaluation deterministically.
+services:
+  - type: web
+    name: bi-rag-agent-api
+    runtime: docker
+    plan: free
+    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:////tmp/bi_rag.db
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
+
+  - type: web
+    name: bi-rag-agent-ui
+    runtime: docker
+    plan: free
+    dockerCommand: streamlit run ui.py --server.address 0.0.0.0 --server.port $PORT
+    envVars:
+      - key: API_URL
+        value: https://bi-rag-agent-api.onrender.com
