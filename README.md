@@ -1,6 +1,24 @@
 # Business Intelligence RAG Agent
 
-A production-shaped starter that answers business questions using three evidence lanes:
+> A production-shaped, evidence-first GenAI application for answering business questions from documents, KPI definitions, and structured revenue data.
+
+This is a focused portfolio project demonstrating how to build a safe RAG workflow beyond a generic “chat with PDFs” demo. It combines **LangChain orchestration**, governed SQL retrieval, a vector-ready knowledge layer, citations, and evaluation behind a typed FastAPI service.
+
+## Portfolio highlights
+
+- **Applied RAG engineering:** LangChain LCEL orchestration retrieves business-report chunks, structured metric data, and KPI definitions in parallel.
+- **Grounded answers:** every response includes its approved SQL template, underlying data, metric-definition context, and document-level citations.
+- **Safe structured-data access:** no model-generated SQL is executed. The application selects reviewed query templates rather than allowing arbitrary database access.
+- **Production-minded design:** Pydantic contracts, service-layer separation, Docker deployment, health checks, deterministic fallbacks, and evaluation signals.
+- **Cloud-ready architecture:** Docker Compose includes PostgreSQL + pgvector; document and embedding fields are designed for an S3 ingestion and pgvector similarity-search extension.
+
+## The business problem
+
+Business teams often need to search reports, metric definitions, and a warehouse separately before they can answer a simple question such as:
+
+> **Why did revenue decline in Q3?**
+
+This agent resolves the relevant metric, compares Q2 and Q3 by segment using a governed data query, retrieves supporting business-report evidence, and returns a concise explanation with traceable sources.
 
 1. **Business documents** – chunked reports with source citations.
 2. **SQL data** – governed revenue facts, queried through approved templates.
@@ -11,21 +29,63 @@ The demo answers: **“Why did revenue decline in Q3?”** by comparing Q2 and Q
 ## Architecture
 
 ```text
-Question -> intent classifier -> metric resolver
-         -> SQL evidence + document/KPI retrieval
-         -> grounded reasoning -> answer, citations, evaluation trace
+Question -> intent classification -> metric resolution
+         -> LangChain LCEL evidence graph
+         -> governed SQL + document retriever + KPI definition
+         -> evidence-only LLM synthesis / deterministic fallback
+         -> answer + citations + evaluation trace
 ```
 
-The database has `documents`, `document_chunks`, `metric_definitions`, and `revenue_facts` tables. PostgreSQL is bundled with pgvector so document embeddings can be added without redesigning the schema. The starter uses a real **LangChain LCEL pipeline** (`RunnableParallel` + `RunnableLambda`) to assemble evidence, use a `BaseRetriever` implementation for report chunks, and optionally invoke `ChatOpenAI` for constrained synthesis. The deterministic fallback lets the project demo without a paid API key.
+```text
+Business documents / SQL data / KPI definitions
+                    ↓
+          ingestion + chunk metadata
+                    ↓
+      embeddings + pgvector (production extension)
+                    ↓
+        LangChain custom retriever + SQL evidence
+                    ↓
+        LLM reasoning constrained to retrieved evidence
+                    ↓
+          grounded answer, citations, evaluation
+```
 
-### Stack signal for a job description
+The database has `documents`, `document_chunks`, `metric_definitions`, and `revenue_facts` tables. PostgreSQL is bundled with pgvector so semantic search can be enabled without redesigning the data model. The live demo deliberately uses deterministic lexical retrieval over seeded data so it can be run without a paid LLM account; the schema retains an embedding field and the deployment includes pgvector for the production retrieval path.
+
+## Technical implementation
 
 - **LangChain**: LCEL orchestration, custom retriever, structured evidence context, optional `ChatOpenAI` synthesis.
 - **FastAPI + Pydantic**: typed API contract and service boundary.
 - **SQLAlchemy + PostgreSQL/pgvector**: governed SQL and a vector-ready document schema.
 - **Streamlit + Docker**: usable UI and reproducible local deployment.
+- **Evaluation**: response-level checks for evidence coverage, citation count, and grounded-answer constraints.
 
 LlamaIndex is intentionally not included: it overlaps with LangChain for this scope. A focused LangChain implementation is easier to explain in an interview than using both frameworks without a clear responsibility split.
+
+## What the live demo proves
+
+| Capability | Evidence in this repository |
+| --- | --- |
+| Python application design | FastAPI service, SQLAlchemy models, typed Pydantic request/response schemas |
+| RAG orchestration | [`app/langchain_pipeline.py`](app/langchain_pipeline.py): LCEL `RunnableParallel`, custom `BaseRetriever`, optional `ChatOpenAI` chain |
+| Data engineering | document chunk model, metadata, KPI semantic layer, revenue fact model, seeded ingestion path |
+| GenAI safety | evidence-only system prompt, governed SQL templates, no arbitrary generated SQL execution |
+| Evaluation / observability | `/evaluate` endpoint and response-level grounding/citation checks |
+| Deployment practice | Dockerfile, Docker Compose, Render Blueprint, service health endpoint |
+
+## Interview walkthrough
+
+1. Start with the business question: **“Why did revenue decline in Q3?”**
+2. Show the Streamlit answer and segment contribution chart.
+3. Expand **Evidence & citations** to show document, metric, and SQL provenance.
+4. Expand **Reviewed SQL template** and explain why a production BI copilot should not execute free-form LLM SQL.
+5. Open [`app/langchain_pipeline.py`](app/langchain_pipeline.py) to explain the LangChain LCEL graph and custom retriever.
+6. Explain the next extension: S3 ingestion → embedding generation → pgvector cosine search, with evaluation traces persisted for offline review.
+
+## Resume-ready project description
+
+**Business Intelligence RAG Agent | Python, FastAPI, LangChain, PostgreSQL/pgvector, Docker**
+Built a RAG-based business intelligence assistant that orchestrates retrieval across business documents, KPI definitions, and governed SQL data; generates grounded answers with source citations; and exposes evaluation checks and a Streamlit interface through a containerized FastAPI application.
 
 ## Run it
 
@@ -51,8 +111,9 @@ This repository includes [`render.yaml`](render.yaml), which creates two service
 - The LLM prompt is evidence-only and explicitly forbids invented drivers.
 - `/evaluate` checks citation coverage and whether claims remain grounded in supplied evidence.
 
-## Next production increments
+## Production extension roadmap
 
-- Replace lexical retrieval with OpenAI embeddings + pgvector cosine search.
-- Connect S3 ingestion and your warehouse read replica.
-- Add role-based data policies, query cost limits, audit persistence, and human review for new metric definitions.
+- Add S3-triggered document ingestion, chunking, and metadata enrichment.
+- Generate embeddings with an OpenAI-compatible or local embedding model; store vectors in pgvector and retrieve with cosine similarity.
+- Connect a governed warehouse read replica with role-based policies, query cost limits, and query audit persistence.
+- Persist evaluation traces and add a curated benchmark set for retrieval relevance, citation faithfulness, and answer quality.
