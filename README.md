@@ -77,11 +77,6 @@ LlamaIndex is intentionally not included: it overlaps with LangChain for this sc
 | Evaluation / observability | `/evaluate` endpoint and response-level grounding/citation checks |
 | Deployment practice | Dockerfile, Docker Compose, Render Blueprint, service health endpoint |
 
-## Resume-ready project description
-
-**Business Intelligence RAG Agent | Python, FastAPI, LangChain, PostgreSQL/pgvector, Docker**
-Built a RAG-based business intelligence assistant that orchestrates retrieval across business documents, KPI definitions, and governed SQL data; generates grounded answers with source citations; and exposes evaluation checks and a Streamlit interface through a containerized FastAPI application.
-
 ## Run it
 
 1. Copy `.env.example` to `.env` and set your existing `OPENAI_API_KEY` locally if you want LLM synthesis. The service remains useful without it.
