@@ -77,15 +77,6 @@ LlamaIndex is intentionally not included: it overlaps with LangChain for this sc
 | Evaluation / observability | `/evaluate` endpoint and response-level grounding/citation checks |
 | Deployment practice | Dockerfile, Docker Compose, Render Blueprint, service health endpoint |
 
-## Interview walkthrough
-
-1. Start with the business question: **“Why did revenue decline in Q3?”**
-2. Show the Streamlit answer and segment contribution chart.
-3. Expand **Evidence & citations** to show document, metric, and SQL provenance.
-4. Expand **Reviewed SQL template** and explain why a production BI copilot should not execute free-form LLM SQL.
-5. Open [`app/langchain_pipeline.py`](app/langchain_pipeline.py) to explain the LangChain LCEL graph and custom retriever.
-6. Explain the next extension: S3 ingestion → embedding generation → pgvector cosine search, with evaluation traces persisted for offline review.
-
 ## Resume-ready project description
 
 **Business Intelligence RAG Agent | Python, FastAPI, LangChain, PostgreSQL/pgvector, Docker**

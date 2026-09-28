@@ -10,9 +10,11 @@ services:
   api:
     build: .
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg://bi_rag:bi_rag@db:5432/bi_rag
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      SEMANTIC_RETRIEVAL_ENABLED: ${SEMANTIC_RETRIEVAL_ENABLED:-false}
     volumes: [".:/app"]
     ports: ["8000:8000"]
     depends_on: [db]
@@ -26,4 +28,3 @@ services:
     depends_on: [api]
 volumes:
   pgdata:
-
