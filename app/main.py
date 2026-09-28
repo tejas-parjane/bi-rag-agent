@@ -1,10 +1,11 @@
 import os
 from datetime import date
 from fastapi import Depends, FastAPI
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import Session, sessionmaker
 from .models import Base, Document, DocumentChunk, MetricDefinition, RevenueFact
-from .schemas import AskRequest, AskResponse, Citation
+from .schemas import AskRequest, AskResponse, Citation, IngestRequest, IngestResponse
+from .ingestion import ingest_text_document
 from .langchain_pipeline import retrieve_evidence, synthesize_with_langchain
 from .services import QueryService, classify, evaluate, grounded_answer
 
@@ -40,6 +41,9 @@ def seed(db: Session):
 
 @app.on_event("startup")
 def startup():
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as connection:
+            connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(engine)
     with SessionLocal() as db:
         seed(db)
@@ -47,7 +51,13 @@ def startup():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "llm_configured": bool(os.getenv("OPENAI_API_KEY"))}
+    return {"status": "ok", "llm_configured": bool(os.getenv("OPENAI_API_KEY")), "semantic_retrieval_enabled": os.getenv("SEMANTIC_RETRIEVAL_ENABLED", "false")}
+
+
+@app.post("/ingest/text", response_model=IngestResponse, status_code=201)
+def ingest_text(request: IngestRequest, db: Session = Depends(get_db)):
+    document, chunks_created, semantic = ingest_text_document(db, request.title, request.source_uri, request.content)
+    return IngestResponse(document_id=document.id, chunks_created=chunks_created, semantic_embeddings_created=semantic)
 
 
 @app.post("/ask", response_model=AskResponse)

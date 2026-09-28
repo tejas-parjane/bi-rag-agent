@@ -2,6 +2,12 @@ from datetime import date
 from sqlalchemy import Date, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+try:
+    from pgvector.sqlalchemy import Vector
+    EMBEDDING_TYPE = Vector(384)
+except ImportError:  # Allows the zero-dependency SQLite demo to start before optional extras install.
+    EMBEDDING_TYPE = Text
+
 
 class Base(DeclarativeBase):
     pass
@@ -38,6 +44,5 @@ class DocumentChunk(Base):
     document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
     chunk_index: Mapped[int] = mapped_column(Integer)
     content: Mapped[str] = mapped_column(Text)
-    # PostgreSQL deployments can map this to vector(1536) after embeddings are enabled.
-    embedding: Mapped[str | None] = mapped_column(Text, nullable=True)
-
+    # `vector(384)` in PostgreSQL when pgvector is installed; JSON text in demo fallback mode.
+    embedding: Mapped[object | None] = mapped_column(EMBEDDING_TYPE, nullable=True)

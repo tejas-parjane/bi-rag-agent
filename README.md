@@ -10,7 +10,8 @@ This is a focused portfolio project demonstrating how to build a safe RAG workfl
 - **Grounded answers:** every response includes its approved SQL template, underlying data, metric-definition context, and document-level citations.
 - **Safe structured-data access:** no model-generated SQL is executed. The application selects reviewed query templates rather than allowing arbitrary database access.
 - **Production-minded design:** Pydantic contracts, service-layer separation, Docker deployment, health checks, deterministic fallbacks, and evaluation signals.
-- **Cloud-ready architecture:** Docker Compose includes PostgreSQL + pgvector; document and embedding fields are designed for an S3 ingestion and pgvector similarity-search extension.
+- **Semantic retrieval:** local SentenceTransformers/PyTorch embeddings and pgvector cosine similarity are enabled with one environment flag; lexical retrieval remains the no-cost fallback.
+- **Applied ML evidence:** a small PyTorch contrastive metric-learning experiment demonstrates retriever-training mechanics separately from the production embedding model.
 
 ## The business problem
 
@@ -50,7 +51,7 @@ Business documents / SQL data / KPI definitions
           grounded answer, citations, evaluation
 ```
 
-The database has `documents`, `document_chunks`, `metric_definitions`, and `revenue_facts` tables. PostgreSQL is bundled with pgvector so semantic search can be enabled without redesigning the data model. The live demo deliberately uses deterministic lexical retrieval over seeded data so it can be run without a paid LLM account; the schema retains an embedding field and the deployment includes pgvector for the production retrieval path.
+The database has `documents`, `document_chunks`, `metric_definitions`, and `revenue_facts` tables. PostgreSQL is bundled with pgvector, and `DocumentChunk.embedding` maps to a native `vector(384)` column when PostgreSQL is active. Set `SEMANTIC_RETRIEVAL_ENABLED=true` to embed newly ingested documents with the local PyTorch-backed `all-MiniLM-L6-v2` model and retrieve them with pgvector cosine distance. The default remains deterministic lexical retrieval so the public demo runs without model downloads or a paid API account.
 
 ## Technical implementation
 
@@ -59,6 +60,7 @@ The database has `documents`, `document_chunks`, `metric_definitions`, and `reve
 - **SQLAlchemy + PostgreSQL/pgvector**: governed SQL and a vector-ready document schema.
 - **Streamlit + Docker**: usable UI and reproducible local deployment.
 - **Evaluation**: response-level checks for evidence coverage, citation count, and grounded-answer constraints.
+- **PyTorch + SentenceTransformers**: local embedding inference; a compact contrastive retriever-projection training experiment in [`scripts/train_retriever.py`](scripts/train_retriever.py).
 
 LlamaIndex is intentionally not included: it overlaps with LangChain for this scope. A focused LangChain implementation is easier to explain in an interview than using both frameworks without a clear responsibility split.
 
@@ -69,6 +71,8 @@ LlamaIndex is intentionally not included: it overlaps with LangChain for this sc
 | Python application design | FastAPI service, SQLAlchemy models, typed Pydantic request/response schemas |
 | RAG orchestration | [`app/langchain_pipeline.py`](app/langchain_pipeline.py): LCEL `RunnableParallel`, custom `BaseRetriever`, optional `ChatOpenAI` chain |
 | Data engineering | document chunk model, metadata, KPI semantic layer, revenue fact model, seeded ingestion path |
+| Embeddings and vector search | `/ingest/text` chunks documents and creates local embeddings; PostgreSQL executes pgvector cosine-distance retrieval when enabled |
+| Neural-network fundamentals | `scripts/train_retriever.py` trains a PyTorch projection with contrastive retrieval loss |
 | GenAI safety | evidence-only system prompt, governed SQL templates, no arbitrary generated SQL execution |
 | Evaluation / observability | `/evaluate` endpoint and response-level grounding/citation checks |
 | Deployment practice | Dockerfile, Docker Compose, Render Blueprint, service health endpoint |
@@ -111,9 +115,24 @@ This repository includes [`render.yaml`](render.yaml), which creates two service
 - The LLM prompt is evidence-only and explicitly forbids invented drivers.
 - `/evaluate` checks citation coverage and whether claims remain grounded in supplied evidence.
 
+## Enable semantic search locally
+
+Start PostgreSQL + pgvector, set `SEMANTIC_RETRIEVAL_ENABLED=true`, then ingest a report through the API:
+
+```powershell
+curl -X POST http://localhost:8000/ingest/text -H "Content-Type: application/json" -d '{"title":"Q3 review","source_uri":"s3://demo/q3-review.md","content":"Your business report text, at least fifty characters long..."}'
+```
+
+The first embedding request downloads the local model. Run the PyTorch training demonstration separately with:
+
+```powershell
+python scripts/train_retriever.py
+```
+
+Run the automated retrieval/evaluation checks with `pytest`.
+
 ## Production extension roadmap
 
 - Add S3-triggered document ingestion, chunking, and metadata enrichment.
-- Generate embeddings with an OpenAI-compatible or local embedding model; store vectors in pgvector and retrieve with cosine similarity.
 - Connect a governed warehouse read replica with role-based policies, query cost limits, and query audit persistence.
 - Persist evaluation traces and add a curated benchmark set for retrieval relevance, citation faithfulness, and answer quality.

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .models import DocumentChunk, MetricDefinition, RevenueFact
+from .vector_store import semantic_search
 
 
 @dataclass
@@ -43,6 +44,9 @@ ORDER BY segment, period;"""
 
 
 def retrieve(db: Session, question: str) -> list[dict]:
+    semantic_chunks = semantic_search(db, question)
+    if semantic_chunks:
+        return [{"id": c.id, "content": c.content, "document_id": c.document_id} for c in semantic_chunks]
     terms = {word for word in re.findall(r"[a-z]{4,}", question.lower())}
     chunks = db.scalars(select(DocumentChunk)).all()
     ranked = sorted(chunks, key=lambda c: sum(term in c.content.lower() for term in terms), reverse=True)
@@ -75,4 +79,3 @@ def evaluate(answer: str, citations: list[dict]) -> dict:
         "citation_count": len(citations),
         "checks": ["SQL evidence attached", "metric definition attached", "document evidence attached"],
     }
-
